@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Splitter</title>
+<style>
+  :root {
+    --bg: #f4f4f1;
+    --surface: #ffffff;
+    --surface-2: #ecebe6;
+    --border: #dcdbd4;
+    --text: #1f1f1d;
+    --muted: #6a6a64;
+    --accent: #185fa5;
+    --accent-soft: #e6f1fb;
+    --success: #0f6e56;
+    --success-soft: #e1f5ee;
+    --danger: #a32d2d;
+    --danger-soft: #fcebeb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header p { font-size: 13px; color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat {
+    background: var(--surface-2); border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .stat .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat .value { font-size: 22px; font-weight: 600; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px;
+  }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input, select, button {
+    font: inherit; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 11px; background: var(--surface); color: var(--text);
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: #a8a8a2; }
+
+  button {
+    cursor: pointer; background: var(--surface-2); font-weight: 500;
+    transition: background .12s, transform .05s;
+  }
+  button:hover { background: var(--border); }
+  button:active { transform: scale(.98); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #134e88; }
+
+  .exp-grid { display: grid; grid-template-columns: 1.5fr .9fr 1.1fr; gap: 8px; margin-bottom: 6px; }
+  .exp-grid input, .exp-grid select { width: 100%; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 13px; padding: 6px 11px; border-radius: 8px;
+  }
+  .chip .x { cursor: pointer; font-weight: 700; opacity: .7; }
+  .chip .x:hover { opacity: 1; }
+
+  .item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-top: 1px solid var(--border); gap: 10px;
+  }
+  .item:first-child { border-top: none; }
+  .item .desc { font-size: 14px; }
+  .item .meta { font-size: 12px; color: var(--muted); }
+  .item .amt { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .item .del {
+    cursor: pointer; color: var(--danger); font-size: 13px;
+    background: var(--danger-soft); border: none; padding: 4px 9px; border-radius: 6px;
+  }
+
+  .settle-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; font-size: 14px;
+  }
+  .settle-row .arrow { color: var(--muted); }
+  .settle-row .pay { margin-left: auto; font-weight: 600; color: var(--success); }
+  .who { font-weight: 600; }
+
+  .empty { font-size: 13px; color: #a8a8a2; padding: 4px 0; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .footnote { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+  @media (max-width: 540px) {
+    .stats { grid-template-columns: 1fr; }
+    .exp-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">&#9878;</div>
+    <div>
+      <h1>Budget Splitter</h1>
+      <p>Split shared costs and settle up fairly</p>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Total spent</div><div class="value" id="stat-total">$0.00</div></div>
+    <div class="stat"><div class="label">People</div><div class="value" id="stat-people">0</div></div>
+    <div class="stat"><div class="label">Expenses</div><div class="value" id="stat-count">0</div></div>
+  </div>
+
+  <div class="card">
+    <h2>People</h2>
+    <div class="row">
+      <input type="text" id="person-name" placeholder="Add a name" style="flex:1; min-width:140px;">
+      <button class="primary" id="add-person">Add</button>
+    </div>
+    <div class="chips" id="people-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>Expenses</h2>
+    <div class="exp-grid">
+      <input type="text" id="exp-desc" placeholder="Description">
+      <input type="number" id="exp-amount" placeholder="Amount" min="0" step="0.01">
+      <select id="exp-payer"><option value="">Paid by&hellip;</option></select>
+    </div>
+    <div class="row">
+      <button class="primary" id="add-expense" style="flex:1;">Add expense</button>
+    </div>
+    <div id="expense-list" style="margin-top:12px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Settle up</h2>
+    <div id="settlement"></div>
+  </div>
+
+  <div class="card">
+    <h2>Data</h2>
+    <div class="toolbar">
+      <button id="export-csv">Export to CSV</button>
+      <button id="import-csv">Import from CSV</button>
+      <button id="clear-all">Clear all</button>
+      <input type="file" id="file-input" accept=".csv" style="display:none;">
+    </div>
+    <p class="footnote">Data is saved in this browser automatically. Export to CSV to keep a copy or move it elsewhere.</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "budgetSplitterData";
+  var people = [];
+  var expenses = [];
+  var pid = 0, eid = 0;
+
+  function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2); }
+
+  // ---- persistence -------------------------------------------------
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        people: people, expenses: expenses, pid: pid, eid: eid
+      }));
+    } catch (e) { /* storage unavailable; app still works for the session */ }
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      people = d.people || [];
+      expenses = d.expenses || [];
+      pid = d.pid || 0;
+      eid = d.eid || 0;
+    } catch (e) { /* corrupt or blocked; start fresh */ }
+  }
+
+  // ---- people ------------------------------------------------------
+  function addPerson(name) {
+    name = (name || "").trim();
+    if (!name) return;
+    var exists = people.some(function (p) {
+      return p.name.toLowerCase() === name.toLowerCase();
+    });
+    if (exists) return;
+    people.push({ id: ++pid, name: name });
+    refresh();
+  }
+  function removePerson(id) {
+    people = people.filter(function (p) { return p.id !== id; });
+    expenses = expenses.filter(function (e) { return e.payer !== id; });
+    refresh();
+  }
+
+  // ---- expenses ----------------------------------------------------
+  function addExpense(desc, amount, payerId) {
+    desc = (desc || "").trim();
+    var amt = parseFloat(amount);
+    if (!desc || !(amt > 0) || !payerId) return false;
+    expenses.push({ id: ++eid, desc: desc, amount: amt, payer: payerId });
+    refresh();
+    return true;
+  }
+  function removeExpense(id) {
+    expenses = expenses.filter(function (e) { return e.id !== id; });
+    refresh();
+  }
+
+  // ---- settlement --------------------------------------------------
+  function settle() {
+    var total = expenses.reduce(function (s, e) { return s + e.amount; }, 0);
+    if (people.length < 2 || expenses.length === 0) return { transfers: [], ok: false };
+
+    var share = total / people.length;
+    var bal = {};
+    people.forEach(function (p) { bal[p.id] = -share; });
+    expenses.forEach(function (e) { bal[e.payer] += e.amount; });
+
+    var debtors = [], creditors = [];
+    people.forEach(function (p) {
+      var v = Math.round(bal[p.id] * 100) / 100;
+      if (v < -0.005) debtors.push({ name: p.name, amt: -v });
+      else if (v > 0.005) creditors.push({ name: p.name, amt: v });
+    });
+    debtors.sort(function (a, b) { return b.amt - a.amt; });
+    creditors.sort(function (a, b) { return b.amt - a.amt; });
+
+    var transfers = [], i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      var pay = Math.round(Math.min(debtors[i].amt, creditors[j].amt) * 100) / 100;
+      transfers.push({ from: debtors[i].name, to: creditors[j].name, amt: pay });
+      debtors[i].amt -= pay;
+      creditors[j].amt -= pay;
+      if (debtors[i].amt < 0.005) i++;
+      if (creditors[j].amt < 0.005) j++;
+    }
+    return { transfers: transfers, ok: true };
+  }
+
+  // ---- rendering ---------------------------------------------------
+  function refresh() {
+    var pl = document.getElementById("people-list");
+    pl.innerHTML = "";
+    people.forEach(function (p) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.appendChild(document.createTextNode(p.name));
+      var x = document.createElement("span");
+      x.className = "x";
+      x.textContent = "\u00d7";
+      x.onclick = function () { removePerson(p.id); };
+      chip.appendChild(x);
+      pl.appendChild(chip);
+    });
+
+    var sel = document.getElementById("exp-payer");
+    var prev = sel.value;
+    sel.innerHTML = '<option value="">Paid by\u2026</option>';
+    people.forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p.id; o.textContent = p.name;
+      sel.appendChild(o);
+    });
+    sel.value = prev;
+
+    var el = document.getElementById("expense-list");
+    el.innerHTML = "";
+    if (expenses.length === 0) {
+      el.innerHTML = '<div class="empty">No expenses yet.</div>';
+    } else {
+      expenses.forEach(function (e) {
+        var payer = people.filter(function (p) { return p.id === e.payer; })[0];
+        var item = document.createElement("div");
+        item.className = "item";
+
+        var left = document.createElement("div");
+        var d = document.createElement("div");
+        d.className = "desc"; d.textContent = e.desc;
+        var m = document.createElement("div");
+        m.className = "meta"; m.textContent = "Paid by " + (payer ? payer.name : "unknown");
+        left.appendChild(d); left.appendChild(m);
+
+        var right = document.createElement("div");
+        right.style.cssText = "display:flex;align-items:center;gap:10px;";
+        var a = document.createElement("span");
+        a.className = "amt"; a.textContent = money(e.amount);
+        var del = document.createElement("button");
+        del.className = "del"; del.textContent = "Delete";
+        del.onclick = function () { removeExpense(e.id); };
+        right.appendChild(a); right.appendChild(del);
+
+        item.appendChild(left); item.appendChild(right);
+        el.appendChild(item);
+      });
+    }
+
+    var total = expenses.reduce(function (s, e) { return s + e.amount; }, 0);
+    document.getElementById("stat-total").textContent = money(total);
+    document.getElementById("stat-people").textContent = people.length;
+    document.getElementById("stat-count").textContent = expenses.length;
+
+    var box = document.getElementById("settlement");
+    var result = settle();
+    if (!result.ok) {
+      box.innerHTML = '<div class="empty">Add at least 2 people and one expense to see who owes whom.</div>';
+    } else if (result.transfers.length === 0) {
+      box.innerHTML = '<div class="settle-row" style="color:var(--success);">Everyone is settled up.</div>';
+    } else {
+      box.innerHTML = "";
+      result.transfers.forEach(function (t) {
+        var row = document.createElement("div");
+        row.className = "settle-row";
+        row.innerHTML = '<span class="who"></span><span class="arrow">&rarr;</span>'
+          + '<span class="who"></span><span class="pay"></span>';
+        row.children[0].textContent = t.from;
+        row.children[2].textContent = t.to;
+        row.children[3].textContent = money(t.amt);
+        box.appendChild(row);
+      });
+    }
+    save();
+  }
+
+  // ---- CSV ---------------------------------------------------------
+  function csvCell(v) {
+    v = String(v);
+    if (/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+  function exportCsv() {
+    var rows = [["description", "amount", "payer"]];
+    expenses.forEach(function (e) {
+      var payer = people.filter(function (p) { return p.id === e.payer; })[0];
+      rows.push([e.desc, e.amount.toFixed(2), payer ? payer.name : ""]);
+    });
+    var csv = rows.map(function (r) { return r.map(csvCell).join(","); }).join("\n");
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "budget-splitter.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function parseCsv(text) {
+    var rows = [], row = [], cur = "", q = false, i;
+    for (i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) {
+        if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === '"') { q = false; }
+        else { cur += c; }
+      } else {
+        if (c === '"') { q = true; }
+        else if (c === ",") { row.push(cur); cur = ""; }
+        else if (c === "\n" || c === "\r") {
+          if (c === "\r" && text[i + 1] === "\n") i++;
+          row.push(cur); rows.push(row); row = []; cur = "";
+        } else { cur += c; }
+      }
+    }
+    if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+    return rows;
+  }
+  function importCsv(text) {
+    var rows = parseCsv(text).filter(function (r) {
+      return r.some(function (c) { return c.trim() !== ""; });
+    });
+    if (rows.length < 2) { alert("CSV looks empty."); return; }
+    rows.shift(); // drop header
+    people = []; expenses = []; pid = 0; eid = 0;
+    rows.forEach(function (r) {
+      var desc = (r[0] || "").trim();
+      var amt = parseFloat(r[1]);
+      var payerName = (r[2] || "").trim();
+      if (!desc || !(amt > 0) || !payerName) return;
+      var person = people.filter(function (p) {
+        return p.name.toLowerCase() === payerName.toLowerCase();
+      })[0];
+      if (!person) { person = { id: ++pid, name: payerName }; people.push(person); }
+      expenses.push({ id: ++eid, desc: desc, amount: amt, payer: person.id });
+    });
+    refresh();
+    alert("Imported " + expenses.length + " expense(s).");
+  }
+
+  // ---- wiring ------------------------------------------------------
+  document.getElementById("add-person").onclick = function () {
+    var inp = document.getElementById("person-name");
+    addPerson(inp.value);
+    inp.value = ""; inp.focus();
+  };
+  document.getElementById("person-name").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("add-person").click();
+  });
+
+  document.getElementById("add-expense").onclick = function () {
+    var d = document.getElementById("exp-desc");
+    var a = document.getElementById("exp-amount");
+    var p = document.getElementById("exp-payer");
+    if (!people.length) { alert("Add at least one person first."); return; }
+    if (addExpense(d.value, a.value, p.value ? parseInt(p.value, 10) : null)) {
+      d.value = ""; a.value = ""; p.value = ""; d.focus();
+    } else {
+      alert("Enter a description, a positive amount, and who paid.");
+    }
+  };
+
+  document.getElementById("export-csv").onclick = exportCsv;
+  document.getElementById("import-csv").onclick = function () {
+    document.getElementById("file-input").click();
+  };
+  document.getElementById("file-input").onchange = function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { importCsv(reader.result); };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+  document.getElementById("clear-all").onclick = function () {
+    if (!confirm("Clear all people and expenses?")) return;
+    people = []; expenses = []; pid = 0; eid = 0;
+    refresh();
+  };
+
+  load();
+  refresh();
+})();
+</script>
+</body>
+</html>
